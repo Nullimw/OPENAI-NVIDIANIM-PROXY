@@ -16,10 +16,6 @@
     "node": ">=18.0.0"
   }
 }
-*/
-
-// vercel.json (for Vercel deployment)
-/*
 {
   "version": 2,
   "builds": [
