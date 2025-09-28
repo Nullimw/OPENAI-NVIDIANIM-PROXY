@@ -16,32 +16,3 @@
     "node": ">=18.0.0"
   }
 }
-{
-  "version": 2,
-  "builds": [
-    {
-      "src": "server.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/server.js"
-    }
-  ],
-  "env": {
-    "NIM_API_KEY": "@nim_api_key"
-  }
-}
-*/
-
-// Railway deployment: railway.json
-/*
-{
-  "deploy": {
-    "startCommand": "npm start",
-    "restartPolicyType": "ON_FAILURE"
-  }
-}
-
