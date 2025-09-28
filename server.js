@@ -47,8 +47,19 @@ app.post('/v1/chat/completions', async (req, res) => {
     const { model, messages, temperature, max_tokens, stream } = req.body;
     
     // Map OpenAI model to NIM model
-    const nimModel = MODEL_MAPPING[model] || MODEL_MAPPING['gpt-3.5-turbo'];
-    
+    // Smart model selection with fallback
+let nimModel = MODEL_MAPPING[model];
+if (!nimModel) {
+  const modelLower = model.toLowerCase();
+  if (modelLower.includes('gpt-4') || modelLower.includes('claude-opus') || modelLower.includes('405b')) {
+    nimModel = 'meta/llama-3.1-405b-instruct'; // Large model
+  } else if (modelLower.includes('claude') || modelLower.includes('gemini') || modelLower.includes('70b')) {
+    nimModel = 'meta/llama-3.1-70b-instruct'; // Medium model  
+  } else {
+    nimModel = 'meta/llama-3.1-8b-instruct'; // Small model (default)
+  }
+  console.log(`Smart fallback: ${model} → ${nimModel}`);
+}
     // Transform OpenAI request to NIM format
     const nimRequest = {
       model: nimModel,
