@@ -16,9 +16,9 @@ const NIM_API_KEY = process.env.NIM_API_KEY; // Your NVIDIA API key
 
 // Model mapping (adjust based on available NIM models)
 const MODEL_MAPPING = {
-  'gpt-3.5-turbo': 'meta/llama-3.1-8b-instruct',
-  'gpt-4': 'meta/llama-3.1-70b-instruct',
-  'gpt-4-turbo': 'meta/llama-3.1-405b-instruct'
+  'gpt-3.5-turbo': 'qwen/qwen3-235b-a22b',
+  'gpt-4': 'deepseek-ai/deepseek-v3.1',
+  'gpt-4-turbo': 'moonshotai/kimi-k2-instruct-0905'
 };
 
 // Health check endpoint
