@@ -83,12 +83,17 @@ if (!nimModel) {
 }
     // Transform OpenAI request to NIM format
     const nimRequest = {
-      model: nimModel,
-      messages: messages,
-      temperature: temperature || 0.6,
-      max_tokens: max_tokens ||9024,
-      stream: stream || false
-    };
+  model: nimModel,
+  messages: messages,
+  temperature: temperature || 0.6,
+  max_tokens: max_tokens || 9024,
+  stream: stream || false,
+  // Enable reasoning/thinking output
+  include_reasoning: true,
+  // Some models use different parameter names:
+  output_reasoning: true,
+  show_reasoning: true
+};
     
     // Make request to NVIDIA NIM API
     const response = await axios.post(`${NIM_API_BASE}/chat/completions`, nimRequest, {
