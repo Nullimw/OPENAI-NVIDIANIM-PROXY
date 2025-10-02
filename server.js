@@ -82,17 +82,34 @@ if (!nimModel) {
   }
 }
     // Transform OpenAI request to NIM format
-    const nimRequest = {
+    // Clone messages to avoid modifying original
+let processedMessages = [...messages];
+
+// Enable reasoning for specific models via system prompt
+const modelLower = nimModel.toLowerCase();
+const needsReasoning = 
+  modelLower.includes('deepseek-v3') ||
+  modelLower.includes('deepseek-r1') ||
+  modelLower.includes('gpt-oss-20b') ||
+  modelLower.includes('gpt-oss-120b');
+
+if (needsReasoning) {
+  if (processedMessages[0]?.role !== 'system') {
+    processedMessages.unshift({
+      role: 'system',
+      content: 'detailed thinking on'
+    });
+  } else if (!processedMessages[0].content.includes('thinking')) {
+    processedMessages[0].content = 'detailed thinking on\n' + processedMessages[0].content;
+  }
+}
+
+const nimRequest = {
   model: nimModel,
-  messages: messages,
+  messages: processedMessages,
   temperature: temperature || 0.6,
-  max_tokens: max_tokens || 9024,
-  stream: stream || false,
-  // Enable reasoning/thinking output
-  include_reasoning: true,
-  // Some models use different parameter names:
-  output_reasoning: true,
-  show_reasoning: true
+  max_tokens: max_tokens || 7024,
+  stream: stream || false
 };
     
     // Make request to NVIDIA NIM API
