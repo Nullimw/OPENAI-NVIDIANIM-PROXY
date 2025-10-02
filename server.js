@@ -85,7 +85,7 @@ if (!nimModel) {
     const nimRequest = {
       model: nimModel,
       messages: messages,
-      temperature: temperature || 0.6,
+      temperature: temperature || 0.2,
       max_tokens: max_tokens ||9024,
       stream: stream || false
     };
