@@ -89,14 +89,6 @@ if (!nimModel) {
   max_tokens: max_tokens || 9024,
   stream: stream || false
 };
-
-const nimRequest = {
-  model: nimModel,
-  messages: processedMessages,
-  temperature: temperature || 0.6,
-  max_tokens: max_tokens || 7024,
-  stream: stream || false
-};
     
     // Make request to NVIDIA NIM API
     const response = await axios.post(`${NIM_API_BASE}/chat/completions`, nimRequest, {
