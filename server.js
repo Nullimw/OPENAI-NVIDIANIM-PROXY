@@ -85,14 +85,9 @@ if (!nimModel) {
     const nimRequest = {
   model: nimModel,
   messages: messages,
-  temperature: temperature || 0.7,
-  max_tokens: max_tokens || 1024,
-  stream: stream || false,
-  // Enable reasoning/thinking output
-  include_reasoning: true,
-  // Some models use different parameter names:
-  output_reasoning: true,
-  show_reasoning: true
+  temperature: temperature || 0.6,
+  max_tokens: max_tokens || 7024,
+  stream: stream || false
 };
     
     // Make request to NVIDIA NIM API
