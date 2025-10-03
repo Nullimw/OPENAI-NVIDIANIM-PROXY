@@ -142,7 +142,7 @@ app.post('/v1/chat/completions', async (req, res) => {
                   
                   // Close </think> and add content when reasoning ends
                   if (content && reasoningStarted) {
-                    combinedContent += '</think>\n\nResponse:\n' + content;
+                    combinedContent += '</think>\n\n' + content;
                     reasoningStarted = false;
                   } else if (content) {
                     combinedContent += content;
@@ -187,7 +187,7 @@ app.post('/v1/chat/completions', async (req, res) => {
           
           // Handle reasoning based on toggle
           if (SHOW_REASONING && choice.message?.reasoning_content) {
-            fullContent = '<think>\n' + choice.message.reasoning_content + '\n</think>\n\nResponse:\n' + fullContent;
+            fullContent = '<think>\n' + choice.message.reasoning_content + '\n</think>\n\n' + fullContent;
           }
           
           return {
