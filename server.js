@@ -50,43 +50,42 @@ app.post('/v1/chat/completions', async (req, res) => {
   try {
     const { model, messages, temperature, max_tokens, stream } = req.body;
     
-    // Map OpenAI model to NIM model
     // Smart model selection with fallback
-// Test and use original model if available, otherwise smart fallback
-let nimModel = MODEL_MAPPING[model];
-if (!nimModel) {
-  try {
-    await axios.post(`${NIM_API_BASE}/chat/completions`, {
-      model: model,
-      messages: [{ role: 'user', content: 'test' }],
-      max_tokens: 1
-    }, {
-      headers: { 'Authorization': `Bearer ${NIM_API_KEY}`, 'Content-Type': 'application/json' },
-      validateStatus: (status) => status < 500
-    }).then(res => {
-      if (res.status >= 200 && res.status < 300) {
-        nimModel = model;
+    let nimModel = MODEL_MAPPING[model];
+    if (!nimModel) {
+      try {
+        await axios.post(`${NIM_API_BASE}/chat/completions`, {
+          model: model,
+          messages: [{ role: 'user', content: 'test' }],
+          max_tokens: 1
+        }, {
+          headers: { 'Authorization': `Bearer ${NIM_API_KEY}`, 'Content-Type': 'application/json' },
+          validateStatus: (status) => status < 500
+        }).then(res => {
+          if (res.status >= 200 && res.status < 300) {
+            nimModel = model;
+          }
+        });
+      } catch (e) {}
+      
+      if (!nimModel) {
+        const modelLower = model.toLowerCase();
+        if (modelLower.includes('gpt-4') || modelLower.includes('claude-opus') || modelLower.includes('405b')) {
+          nimModel = 'meta/llama-3.1-405b-instruct';
+        } else if (modelLower.includes('claude') || modelLower.includes('gemini') || modelLower.includes('70b')) {
+          nimModel = 'meta/llama-3.1-70b-instruct';
+        } else {
+          nimModel = 'meta/llama-3.1-8b-instruct';
+        }
       }
-    });
-  } catch (e) {}
-  
-  if (!nimModel) {
-    const modelLower = model.toLowerCase();
-    if (modelLower.includes('gpt-4') || modelLower.includes('claude-opus') || modelLower.includes('405b')) {
-      nimModel = 'meta/llama-3.1-405b-instruct';
-    } else if (modelLower.includes('claude') || modelLower.includes('gemini') || modelLower.includes('70b')) {
-      nimModel = 'meta/llama-3.1-70b-instruct';
-    } else {
-      nimModel = 'meta/llama-3.1-8b-instruct';
     }
-  }
-}
+    
     // Transform OpenAI request to NIM format
     const nimRequest = {
       model: nimModel,
       messages: messages,
       temperature: temperature || 0.6,
-      max_tokens: max_tokens ||9024,
+      max_tokens: max_tokens || 9024,
       stream: stream || false
     };
     
@@ -100,94 +99,80 @@ if (!nimModel) {
     });
     
     if (stream) {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  
-  let buffer = '';
-  
-  response.data.on('data', (chunk) => {
-    buffer += chunk.toString();
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
-    
-    lines.forEach(line => {
-      if (line.startsWith('data: ')) {
-        if (line.includes('[DONE]')) {
-          res.write(line + '\n');
-          return;
-        }
+      // Handle streaming response with reasoning
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      
+      let buffer = '';
+      
+      response.data.on('data', (chunk) => {
+        buffer += chunk.toString();
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
         
-        try {
-          const data = JSON.parse(line.slice(6));
-          const choice = data.choices?.[0];
-          
-          if (choice?.delta) {
-            // Combine reasoning_content + content
-            let combinedContent = '';
-            
-            if (choice.delta.reasoning_content) {
-              combinedContent += choice.delta.reasoning_content;
+        lines.forEach(line => {
+          if (line.startsWith('data: ')) {
+            if (line.includes('[DONE]')) {
+              res.write(line + '\n');
+              return;
             }
             
-            if (choice.delta.content) {
-              combinedContent += choice.delta.content;
-            }
-            
-            // Update the delta with combined content
-            if (combinedContent) {
-              data.choices[0].delta.content = combinedContent;
-              delete data.choices[0].delta.reasoning_content;
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.choices?.[0]?.delta) {
+                const reasoning = data.choices[0].delta.reasoning_content;
+                const content = data.choices[0].delta.content;
+                
+                // Combine reasoning and content
+                if (reasoning || content) {
+                  data.choices[0].delta.content = (reasoning || '') + (content || '');
+                  delete data.choices[0].delta.reasoning_content;
+                }
+              }
+              res.write(`data: ${JSON.stringify(data)}\n\n`);
+            } catch (e) {
+              res.write(line + '\n');
             }
           }
-          
-          res.write(`data: ${JSON.stringify(data)}\n\n`);
-        } catch (e) {
-          res.write(line + '\n');
-        }
-      }
-    });
-  });
-  
-  response.data.on('end', () => res.end());
-  response.data.on('error', (err) => {
-    console.error('Stream error:', err);
-    res.end();
-  });
-} else {
-      // Transform NIM response to OpenAI format
+        });
+      });
+      
+      response.data.on('end', () => res.end());
+      response.data.on('error', (err) => {
+        console.error('Stream error:', err);
+        res.end();
+      });
+    } else {
+      // Transform NIM response to OpenAI format with reasoning
       const openaiResponse = {
-  id: `chatcmpl-${Date.now()}`,
-  object: 'chat.completion',
-  created: Math.floor(Date.now() / 1000),
-  model: model,
-  choices: response.data.choices.map(choice => {
-    // Combine reasoning_content + content
-    let fullContent = '';
-    
-    // Add reasoning if available
-    if (choice.message?.reasoning_content) {
-      fullContent += '<thinking>\n' + choice.message.reasoning_content + '\n</thinking>\n\n';
-    }
-    
-    // Add main content
-    fullContent += choice.message?.content || '';
-    
-    return {
-      index: choice.index,
-      message: {
-        role: choice.message.role,
-        content: fullContent
-      },
-      finish_reason: choice.finish_reason
-    };
-  }),
-  usage: response.data.usage || {
-    prompt_tokens: 0,
-    completion_tokens: 0,
-    total_tokens: 0
-  }
-};
+        id: `chatcmpl-${Date.now()}`,
+        object: 'chat.completion',
+        created: Math.floor(Date.now() / 1000),
+        model: model,
+        choices: response.data.choices.map(choice => {
+          let fullContent = choice.message?.content || '';
+          
+          // Prepend reasoning_content if it exists
+          if (choice.message?.reasoning_content) {
+            fullContent = choice.message.reasoning_content + '\n\n' + fullContent;
+          }
+          
+          return {
+            index: choice.index,
+            message: {
+              role: choice.message.role,
+              content: fullContent
+            },
+            finish_reason: choice.finish_reason
+          };
+        }),
+        usage: response.data.usage || {
+          prompt_tokens: 0,
+          completion_tokens: 0,
+          total_tokens: 0
+        }
+      };
       
       res.json(openaiResponse);
     }
