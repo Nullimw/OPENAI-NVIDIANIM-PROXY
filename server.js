@@ -100,13 +100,61 @@ if (!nimModel) {
     });
     
     if (stream) {
-      // Handle streaming response
-      res.setHeader('Content-Type', 'text/plain');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-      
-      response.data.pipe(res);
-    } else {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  
+  let buffer = '';
+  
+  response.data.on('data', (chunk) => {
+    buffer += chunk.toString();
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    
+    lines.forEach(line => {
+      if (line.startsWith('data: ')) {
+        if (line.includes('[DONE]')) {
+          res.write(line + '\n');
+          return;
+        }
+        
+        try {
+          const data = JSON.parse(line.slice(6));
+          const choice = data.choices?.[0];
+          
+          if (choice?.delta) {
+            // Combine reasoning_content + content
+            let combinedContent = '';
+            
+            if (choice.delta.reasoning_content) {
+              combinedContent += choice.delta.reasoning_content;
+            }
+            
+            if (choice.delta.content) {
+              combinedContent += choice.delta.content;
+            }
+            
+            // Update the delta with combined content
+            if (combinedContent) {
+              data.choices[0].delta.content = combinedContent;
+              delete data.choices[0].delta.reasoning_content;
+            }
+          }
+          
+          res.write(`data: ${JSON.stringify(data)}\n\n`);
+        } catch (e) {
+          res.write(line + '\n');
+        }
+      }
+    });
+  });
+  
+  response.data.on('end', () => res.end());
+  response.data.on('error', (err) => {
+    console.error('Stream error:', err);
+    res.end();
+  });
+} else {
       // Transform NIM response to OpenAI format
       const openaiResponse = {
   id: `chatcmpl-${Date.now()}`,
