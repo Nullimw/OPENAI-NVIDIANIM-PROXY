@@ -109,21 +109,37 @@ if (!nimModel) {
     } else {
       // Transform NIM response to OpenAI format
       const openaiResponse = {
-        id: `chatcmpl-${Date.now()}`,
-        object: 'chat.completion',
-        created: Math.floor(Date.now() / 1000),
-        model: model,
-        choices: response.data.choices.map(choice => ({
-          index: choice.index,
-          message: choice.message,
-          finish_reason: choice.finish_reason
-        })),
-        usage: response.data.usage || {
-          prompt_tokens: 0,
-          completion_tokens: 0,
-          total_tokens: 0
-        }
-      };
+  id: `chatcmpl-${Date.now()}`,
+  object: 'chat.completion',
+  created: Math.floor(Date.now() / 1000),
+  model: model,
+  choices: response.data.choices.map(choice => {
+    // Combine reasoning_content + content
+    let fullContent = '';
+    
+    // Add reasoning if available
+    if (choice.message?.reasoning_content) {
+      fullContent += '<thinking>\n' + choice.message.reasoning_content + '\n</thinking>\n\n';
+    }
+    
+    // Add main content
+    fullContent += choice.message?.content || '';
+    
+    return {
+      index: choice.index,
+      message: {
+        role: choice.message.role,
+        content: fullContent
+      },
+      finish_reason: choice.finish_reason
+    };
+  }),
+  usage: response.data.usage || {
+    prompt_tokens: 0,
+    completion_tokens: 0,
+    total_tokens: 0
+  }
+};
       
       res.json(openaiResponse);
     }
