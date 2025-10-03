@@ -48,7 +48,7 @@ app.get('/v1/models', (req, res) => {
 // Chat completions endpoint (main proxy)
 app.post('/v1/chat/completions', async (req, res) => {
   try {
-    const { model, messages, temperature, max_tokens, stream } = req.body;
+    const { model, messages, temperature, max_tokens, chat_template_kwargs, stream } = req.body;
     
     // Map OpenAI model to NIM model
     // Smart model selection with fallback
