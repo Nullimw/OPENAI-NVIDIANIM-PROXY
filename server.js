@@ -88,7 +88,7 @@ if (!nimModel) {
       temperature: temperature || 0.6,
       max_tokens: max_tokens ||9024,
       chat_template_kwargs: {"thinking":true},
-      stream: stream || true
+      stream: stream || false
     };
     
     // Make request to NVIDIA NIM API
