@@ -90,7 +90,16 @@ if (!nimModel) {
       chat_template_kwargs: {"thinking":true},
       stream: stream || false
     };
+
+    for await (const chunk of completion) {
+        const reasoning = chunk.choices[0]?.delta?.reasoning_content;
+    if (reasoning) process.stdout.write(reasoning);
+        process.stdout.write(chunk.choices[0]?.delta?.content || '')
     
+  }
+  
+}
+  
     // Make request to NVIDIA NIM API
     const response = await axios.post(`${NIM_API_BASE}/chat/completions`, nimRequest, {
       headers: {
