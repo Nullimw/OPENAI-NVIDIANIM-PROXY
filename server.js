@@ -22,8 +22,7 @@ const MODEL_MAPPING = {
   'gpt-4o': 'deepseek-ai/deepseek-v3.1',
   'claude-3-opus': 'openai/gpt-oss-120b',
   'claude-3-sonnet': 'openai/gpt-oss-20b',
-  'gemini-pro': 'qwen/qwen3-next-80b-a3b-thinking'
-  'Qwen': 'qwen/qwen3-235b-a22b'
+  'gemini-pro': 'qwen/qwen3-next-80b-a3b-thinking' 
 };
 
 // Health check endpoint
@@ -85,7 +84,7 @@ if (!nimModel) {
     // Transform OpenAI request to NIM format
     const nimRequest = {
       model: nimModel,
-      messages: messages,
+      messages: [{"role":"system","content":"detailed thinking on"}],
       temperature: temperature || 0.6,
       max_tokens: max_tokens ||9024,
       stream: stream || false
