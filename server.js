@@ -14,6 +14,9 @@ app.use(express.json());
 const NIM_API_BASE = process.env.NIM_API_BASE || 'https://integrate.api.nvidia.com/v1';
 const NIM_API_KEY = process.env.NIM_API_KEY; // Your NVIDIA API key
 
+// 🔥 REASONING TOGGLE - Set to false to disable thinking/reasoning output
+const SHOW_REASONING = true; // Change to false to hide all reasoning
+
 // Model mapping (adjust based on available NIM models)
 const MODEL_MAPPING = {
   'gpt-3.5-turbo': 'nvidia/llama-3.1-nemotron-ultra-253b-v1',
@@ -27,7 +30,7 @@ const MODEL_MAPPING = {
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'OpenAI to NVIDIA NIM Proxy' });
+  res.json({ status: 'ok', service: 'OpenAI to NVIDIA NIM Proxy', reasoning_enabled: SHOW_REASONING });
 });
 
 // List models endpoint (OpenAI compatible)
@@ -105,6 +108,7 @@ app.post('/v1/chat/completions', async (req, res) => {
       res.setHeader('Connection', 'keep-alive');
       
       let buffer = '';
+      let reasoningStarted = false;
       
       response.data.on('data', (chunk) => {
         buffer += chunk.toString();
@@ -124,9 +128,37 @@ app.post('/v1/chat/completions', async (req, res) => {
                 const reasoning = data.choices[0].delta.reasoning_content;
                 const content = data.choices[0].delta.content;
                 
-                // Combine reasoning and content
-                if (reasoning || content) {
-                  data.choices[0].delta.content = (reasoning || '') + (content || '');
+                // Handle reasoning toggle
+                if (SHOW_REASONING) {
+                  let combinedContent = '';
+                  
+                  // Add <think> tag at start of reasoning
+                  if (reasoning && !reasoningStarted) {
+                    combinedContent = '<think>\n' + reasoning;
+                    reasoningStarted = true;
+                  } else if (reasoning) {
+                    combinedContent = reasoning;
+                  }
+                  
+                  // Close </think> and add content when reasoning ends
+                  if (content && reasoningStarted) {
+                    combinedContent += '</think>\n\nResponse:\n' + content;
+                    reasoningStarted = false;
+                  } else if (content) {
+                    combinedContent += content;
+                  }
+                  
+                  if (combinedContent) {
+                    data.choices[0].delta.content = combinedContent;
+                    delete data.choices[0].delta.reasoning_content;
+                  }
+                } else {
+                  // Reasoning disabled - only show content
+                  if (content) {
+                    data.choices[0].delta.content = content;
+                  } else {
+                    data.choices[0].delta.content = '';
+                  }
                   delete data.choices[0].delta.reasoning_content;
                 }
               }
@@ -153,9 +185,9 @@ app.post('/v1/chat/completions', async (req, res) => {
         choices: response.data.choices.map(choice => {
           let fullContent = choice.message?.content || '';
           
-          // Prepend reasoning_content if it exists
-          if (choice.message?.reasoning_content) {
-            fullContent = choice.message.reasoning_content + '\n\n' + fullContent;
+          // Handle reasoning based on toggle
+          if (SHOW_REASONING && choice.message?.reasoning_content) {
+            fullContent = '<think>\n' + choice.message.reasoning_content + '\n</think>\n\nResponse:\n' + fullContent;
           }
           
           return {
@@ -205,4 +237,5 @@ app.all('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`OpenAI to NVIDIA NIM Proxy running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
+  console.log(`Reasoning display: ${SHOW_REASONING ? 'ENABLED' : 'DISABLED'}`);
 });
